@@ -89,10 +89,11 @@ int main(int argc, char **argv) {
 
         fprintf(stderr, "Received %zd bytes from %s\n", len, address_str);
 
-        if (! IN6_IS_ADDR_LINKLOCAL(&source_addr)) {
-            fprintf(stderr, "Not link local, ignoreing \n");
+        if (! IN6_IS_ADDR_LINKLOCAL(&(source_addr.sin6_addr))) {
+            fprintf(stderr, "Not link local, ignoring\n");
             continue;
         }
+
 
 
         parse(buffer, len);
@@ -122,16 +123,21 @@ parse(const void *pkt, size_t len) {
             }
             const struct nd_router_advert *ra = (const struct nd_router_advert *)pkt;
 
+            if (ra->nd_ra_code != 0) {
+                fprintf(stderr, "Nonzero ICMP code,  ignoring\n");
+                return;
+            }
+
             fprintf(stderr, "RA\ntype:\t%d\ncode:\t%d\nchsum:\t%d\nhoplimit\t%d\nmanaged\t%d\nother\t%d\nlifetime\t%d\nreachable\t%d\nretransmit\t%d\n",
                     ra->nd_ra_type,
                     ra->nd_ra_code,
-                    ra->nd_ra_cksum,
+                    ntohs(ra->nd_ra_cksum),
                     ra->nd_ra_curhoplimit,
                     ra->nd_ra_flags_reserved & ND_RA_FLAG_MANAGED, 
                     ra->nd_ra_flags_reserved & ND_RA_FLAG_OTHER,
-                    ra->nd_ra_router_lifetime,
-                    ra->nd_ra_reachable,
-                    ra->nd_ra_retransmit);
+                    ntohs(ra->nd_ra_router_lifetime),
+                    ntohl(ra->nd_ra_reachable),
+                    ntohl(ra->nd_ra_retransmit));
 
             parsed_len = sizeof(struct nd_router_advert);
 
@@ -153,15 +159,14 @@ parse(const void *pkt, size_t len) {
 
                         inet_ntop(AF_INET6, &(pi->nd_opt_pi_prefix), prefix_str, INET6_ADDRSTRLEN);
 
-                        fprintf(stderr, "Prefix Info\nprefix\t%s/%d\nonlink\t%d\nauto\t%d\nraddr\t%d\nvalid_type\t%d\npreferred_time\t%d\n",
+                        fprintf(stderr, "Prefix Info\nprefix\t%s/%d\nonlink\t%d\nauto\t%d\nraddr\t%d\nvalid_time\t%d\npreferred_time\t%d\n",
                                 prefix_str,
                                 pi->nd_opt_pi_prefix_len,
                                 pi->nd_opt_pi_flags_reserved & ND_OPT_PI_FLAG_ONLINK,
                                 pi->nd_opt_pi_flags_reserved & ND_OPT_PI_FLAG_AUTO,
                                 pi->nd_opt_pi_flags_reserved & ND_OPT_PI_FLAG_RADDR,
-                                pi->nd_opt_pi_valid_time,
-                                pi->nd_opt_pi_preferred_time);
-
+                                ntohl(pi->nd_opt_pi_valid_time),
+                                ntohl(pi->nd_opt_pi_preferred_time));
                         break;
                     case ND_OPT_MTU:
                         if (len < sizeof(struct nd_opt_mtu)) {
