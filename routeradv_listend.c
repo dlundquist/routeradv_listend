@@ -15,7 +15,7 @@
 #define LEN 1000
 
 void hexdump(const void *, ssize_t);
-void parse(void *, size_t);
+void parse(const void *, size_t);
 void usage();
 
 int main(int argc, char **argv) {
@@ -84,9 +84,16 @@ int main(int argc, char **argv) {
             perror("recvfrom()");
             return 1;
         }
+        
         inet_ntop(AF_INET6, &(source_addr.sin6_addr), address_str, INET6_ADDRSTRLEN);
 
         fprintf(stderr, "Received %zd bytes from %s\n", len, address_str);
+
+        if (! IN6_IS_ADDR_LINKLOCAL(&source_addr)) {
+            fprintf(stderr, "Not link local, ignoreing \n");
+            continue;
+        }
+
 
         parse(buffer, len);
     }
@@ -96,14 +103,14 @@ int main(int argc, char **argv) {
 }
 
 void
-parse(void *pkt, size_t len) {
+parse(const void *pkt, size_t len) {
     int tries = 10;
     size_t parsed_len = 0;
     if (len < sizeof(struct icmp6_hdr)) {
         fprintf(stderr, "Did not receive complete ICMP packet\n");
         return;
     }
-    struct icmp6_hdr *hdr = (struct icmp6_hdr *)pkt;
+    const struct icmp6_hdr *hdr = (const struct icmp6_hdr *)pkt;
 
     /* TODO verify checksum */
 
@@ -113,7 +120,7 @@ parse(void *pkt, size_t len) {
                 fprintf(stderr, "Did not receive complete ICMP packet\n");
                 return;
             }
-            struct nd_router_advert *ra = (struct nd_router_advert *)pkt;
+            const struct nd_router_advert *ra = (const struct nd_router_advert *)pkt;
 
             fprintf(stderr, "RA\ntype:\t%d\ncode:\t%d\nchsum:\t%d\nhoplimit\t%d\nmanaged\t%d\nother\t%d\nlifetime\t%d\nreachable\t%d\nretransmit\t%d\n",
                     ra->nd_ra_type,
@@ -130,7 +137,7 @@ parse(void *pkt, size_t len) {
 
             /* Now read the options */
             while (len - parsed_len >= sizeof(struct nd_opt_hdr) && tries --) {
-                struct nd_opt_hdr *opt = (struct nd_opt_hdr *)((char *)ra + parsed_len);
+                const struct nd_opt_hdr *opt = (const struct nd_opt_hdr *)((const char *)ra + parsed_len);
 
                 switch(opt->nd_opt_type) {
                     case ND_OPT_SOURCE_LINKADDR:
@@ -141,7 +148,7 @@ parse(void *pkt, size_t len) {
                             fprintf(stderr, "Did not receive complete ICMP packet option\n");
                             return;
                         }
-                        struct nd_opt_prefix_info *pi = (struct nd_opt_prefix_info *)opt;
+                        const struct nd_opt_prefix_info *pi = (const struct nd_opt_prefix_info *)opt;
                         char prefix_str[INET6_ADDRSTRLEN];
 
                         inet_ntop(AF_INET6, &(pi->nd_opt_pi_prefix), prefix_str, INET6_ADDRSTRLEN);
@@ -161,7 +168,7 @@ parse(void *pkt, size_t len) {
                             fprintf(stderr, "Did not receive complete ICMP packet option\n");
                             return;
                         }
-                        struct nd_opt_mtu *mtu= (struct nd_opt_mtu *)opt;
+                        const struct nd_opt_mtu *mtu= (const struct nd_opt_mtu *)opt;
 
                         fprintf(stderr, "MTU %d\n", ntohl(mtu->nd_opt_mtu_mtu));
                         break;
