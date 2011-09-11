@@ -33,16 +33,11 @@ int parse(const void *, size_t);
 void usage();
 
 int main(int argc, char **argv) {
-    struct icmp6_filter myfilt;
-    struct ipv6_mreq mreq;  /* Multicast address join structure */
-
-    struct sockaddr_in6 source_addr;
-
     char buffer[LEN];
     char address_str[INET6_ADDRSTRLEN];
-    ssize_t len;
+    char ifname_str[IF_NAMESIZE];
     int iface = 0;
-    int ch, fd;
+    int fd, ch;
 
     SLIST_INIT(&routers);
 
@@ -62,6 +57,8 @@ int main(int argc, char **argv) {
         }
     }
 
+
+
     fd = socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
     if (fd < 0) {
         perror("socket()");
@@ -69,6 +66,7 @@ int main(int argc, char **argv) {
     }
 
     /* Filter to permit only router advertisements */
+    struct icmp6_filter myfilt;
     memset(&myfilt, 0, sizeof(myfilt));
     ICMP6_FILTER_SETBLOCKALL(&myfilt);
     ICMP6_FILTER_SETPASS(ND_ROUTER_ADVERT, &myfilt);
@@ -78,6 +76,7 @@ int main(int argc, char **argv) {
     }
 
     /* Specify multicast address to listen to */
+    struct ipv6_mreq mreq;  /* Multicast address join structure */
     memset(&mreq, 0, sizeof(mreq));
     mreq.ipv6mr_interface = iface;
     if (inet_pton(AF_INET6, "ff02::1", &mreq.ipv6mr_multiaddr) != 1) {
@@ -88,21 +87,22 @@ int main(int argc, char **argv) {
         perror("setsockopt()");
         return 1;
     }
+
     /* Specify additional ancillary data */
-    if (setsockopt(fd, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &ch, sizeof(ch)) != 0) {
+    int on = 1;
+    if (setsockopt(fd, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &on, sizeof(on)) != 0) {
         perror("setsockopt()");
         return 1;
     }
-    if (setsockopt(fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &ch, sizeof(ch)) != 0) {
+    if (setsockopt(fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &on, sizeof(on)) != 0) {
         perror("setsockopt()");
         return 1;
     }
 
     /* main loop */ 
     for (;;) {
-        // source_addr_len = sizeof(source_addr);
-        // len = recvfrom(fd, buffer, LEN, 0, (struct sockaddr *)&source_addr, &source_addr_len);
         struct msghdr m;
+        struct sockaddr_in6 source_addr;
         struct iovec iov[1];
         char control_data[LEN];
         int hop_limit;
@@ -120,18 +120,29 @@ int main(int argc, char **argv) {
         m.msg_iovlen = 1;
         m.msg_control = (void *)control_data;
         m.msg_controllen = sizeof(control_data);
+        m.msg_flags = 0;
 
         if (recvmsg(fd, &m, 0) < 0) {
             perror("recvmsg()");
             return 1;
         }
-        len = iov[0].iov_len;
 
+        if (inet_ntop(AF_INET6, &(source_addr.sin6_addr), address_str, INET6_ADDRSTRLEN) == NULL) {
+            perror("inet_ntop()");
+            return 1;
+        }
+
+        fprintf(stderr, "Received %zd bytes from %s\n", iov[0].iov_len, address_str);
+
+
+        /* Parse ancillary data */
         struct cmsghdr *cmsg;
         const struct in6_pktinfo *pktinfo;
         for (cmsg = CMSG_FIRSTHDR(&m); cmsg != NULL; cmsg = CMSG_NXTHDR(&m,cmsg)) {
-            // fprintf(stderr, "cmsg level %d, type %d, len %zd\n", cmsg->cmsg_level, cmsg->cmsg_type, cmsg->cmsg_len);
-            // hexdump(CMSG_DATA(cmsg), cmsg->cmsg_len - sizeof(struct cmsghdr));
+            /*
+            fprintf(stderr, "cmsg level %d, type %d, len %zd\n", cmsg->cmsg_level, cmsg->cmsg_type, cmsg->cmsg_len);
+            hexdump(CMSG_DATA(cmsg), cmsg->cmsg_len - sizeof(struct cmsghdr));
+            */
             switch(cmsg->cmsg_level) {
                 case IPPROTO_IPV6:
                     switch(cmsg->cmsg_type) {
@@ -146,29 +157,39 @@ int main(int argc, char **argv) {
                                 return 1;
                             }
 
-                            fprintf(stderr, "Received packet destined for %s on interface %d\n", address_str, pktinfo->ipi6_ifindex);
+                            if (if_indextoname(pktinfo->ipi6_ifindex, ifname_str) == NULL) {
+                                perror("if_indextoname()");
+                                return 1;
+                            }
+
+                            fprintf(stderr, "Received packet destined for %s on interface %s\n", address_str, ifname_str);
                             break;
                         default:
                             fprintf(stderr, "Unexpected cmsg type %d\n", cmsg->cmsg_type);
+                            return -1;
                     }
                     break;
                 default:
                     fprintf(stderr, "Unexpected cmsg level %d\n", cmsg->cmsg_level);
+                    return -1;
             }
         }
 
-        if (len == -1) {
-            perror("recvfrom()");
-            return 1;
-        }
 
-        if (inet_ntop(AF_INET6, &(source_addr.sin6_addr), address_str, INET6_ADDRSTRLEN) == NULL) {
-            perror("inet_ntop()");
-            return 1;
-        }
-
-        fprintf(stderr, "Received %zd bytes from %s\n", len, address_str);
-
+        /*
+         * RFC4861 requires 6 validations of router advertisments
+         *
+         * - IP Source Address is a link-local address.  Routers must use
+         *   their link-local address as the source for Router Advertisement
+         *   and Redirect messages so that hosts can uniquely identify
+         *   routers.
+         * - The IP Hop Limit field has a value of 255, i.e., the packet
+         *   could not possibly have been forwarded by a router.
+         * - ICMP Checksum is valid.
+         * - ICMP Code is 0.
+         * - ICMP length (derived from the IP length) is 16 or more octets.
+         * - All included options have a length that is greater than zero.
+         */
         if (! IN6_IS_ADDR_LINKLOCAL(&(source_addr.sin6_addr))) {
             fprintf(stderr, "Not link local, ignoring\n");
             continue;
@@ -178,8 +199,10 @@ int main(int argc, char **argv) {
             fprintf(stderr, "Hop limit is not 255, ignoring\n");
             continue;
         }
+    
+        /* TODO verify checksum */
 
-        parse(buffer, len);
+        parse(iov[0].iov_base, iov[0].iov_len);
     }
     return 0;
 }
@@ -193,7 +216,6 @@ parse(const void *pkt, size_t len) {
     }
     const struct icmp6_hdr *hdr = (const struct icmp6_hdr *)pkt;
 
-    /* TODO verify checksum */
 
     switch(hdr->icmp6_type) {
         case ND_ROUTER_ADVERT:
