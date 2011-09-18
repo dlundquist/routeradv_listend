@@ -22,20 +22,16 @@ struct Router {
 
 static SLIST_HEAD(, Router) routers;
 
-struct in6_pktinfo {
-    struct in6_addr ipi6_addr;  /* src/dst IPv6 address */
-    unsigned int ipi6_ifindex;  /* send/recv interface index */
-};
-
-
 void hexdump(const void *, ssize_t);
 int parse(const void *, size_t);
+uint16_t checksum(const struct in6_addr *, const struct in6_addr *, const void *, size_t);
 void usage();
 
 int main(int argc, char **argv) {
     char buffer[LEN];
     char address_str[INET6_ADDRSTRLEN];
     char ifname_str[IF_NAMESIZE];
+    ssize_t len;
     int iface = 0;
     int fd, ch;
 
@@ -103,12 +99,14 @@ int main(int argc, char **argv) {
     for (;;) {
         struct msghdr m;
         struct sockaddr_in6 source_addr;
+        const struct in6_addr *destination_addr;
         struct iovec iov[1];
         char control_data[LEN];
         int hop_limit;
 
         memset(&m, 0, sizeof(m));
         memset(&iov, 0, sizeof(iov));
+        memset(&source_addr, 0, sizeof(source_addr));
         memset(buffer, 0, sizeof(buffer));
         memset(control_data, 0, sizeof(control_data));
 
@@ -122,7 +120,8 @@ int main(int argc, char **argv) {
         m.msg_controllen = sizeof(control_data);
         m.msg_flags = 0;
 
-        if (recvmsg(fd, &m, 0) < 0) {
+        len = recvmsg(fd, &m, 0);
+        if (len < 0) {
             perror("recvmsg()");
             return 1;
         }
@@ -132,7 +131,7 @@ int main(int argc, char **argv) {
             return 1;
         }
 
-        fprintf(stderr, "Received %zd bytes from %s\n", iov[0].iov_len, address_str);
+        fprintf(stderr, "Received %zd bytes from %s\n", len, address_str);
 
 
         /* Parse ancillary data */
@@ -152,7 +151,8 @@ int main(int argc, char **argv) {
                             break;
                         case IPV6_PKTINFO:
                             pktinfo = (const struct in6_pktinfo *)CMSG_DATA(cmsg);
-                            if (inet_ntop(AF_INET6, &(pktinfo->ipi6_addr), address_str, INET6_ADDRSTRLEN) == NULL) {
+                            destination_addr = &(pktinfo->ipi6_addr);
+                            if (inet_ntop(AF_INET6, destination_addr, address_str, INET6_ADDRSTRLEN) == NULL) {
                                 perror("inet_ntop()");
                                 return 1;
                             }
@@ -199,12 +199,70 @@ int main(int argc, char **argv) {
             fprintf(stderr, "Hop limit is not 255, ignoring\n");
             continue;
         }
-    
-        /* TODO verify checksum */
+   
+        if (checksum(&(source_addr.sin6_addr), destination_addr, iov[0].iov_base, len) != 0) {
+            fprintf(stderr, "Invalid checksum, ignoring\n");
+            continue;
+        }
 
         parse(iov[0].iov_base, iov[0].iov_len);
     }
     return 0;
+}
+
+uint16_t
+checksum(const struct in6_addr *src, const struct in6_addr *dst, const void *data, size_t len) {
+    uint32_t checksum = 0;
+    union {
+        uint32_t dword;
+        uint16_t word[2];
+        uint8_t byte[4];
+    } temp;
+
+    checksum += src->s6_addr16[0];
+    checksum += src->s6_addr16[1];
+    checksum += src->s6_addr16[2];
+    checksum += src->s6_addr16[3];
+    checksum += src->s6_addr16[4];
+    checksum += src->s6_addr16[5];
+    checksum += src->s6_addr16[6];
+    checksum += src->s6_addr16[7];
+
+    checksum += dst->s6_addr16[0];
+    checksum += dst->s6_addr16[1];
+    checksum += dst->s6_addr16[2];
+    checksum += dst->s6_addr16[3];
+    checksum += dst->s6_addr16[4];
+    checksum += dst->s6_addr16[5];
+    checksum += dst->s6_addr16[6];
+    checksum += dst->s6_addr16[7];
+
+    temp.dword = htonl(len);
+    checksum += temp.word[0];
+    checksum += temp.word[1];
+
+    temp.byte[0] = 0;
+    temp.byte[1] = 0;
+    temp.byte[2] = 0;
+    temp.byte[3] = 58;
+    checksum += temp.word[0];
+    checksum += temp.word[1];
+
+    while (len > 1) {
+        checksum += *((const uint16_t *)data);
+        data = (const uint16_t *)data + 1;
+        len -= 2;
+    }
+
+    if (len > 0)
+        checksum += *((const uint8_t *)data);
+    
+    while (checksum >> 16 != 0)
+        checksum = (checksum & 0xffff) + (checksum >> 16);
+
+    checksum = ~checksum;
+
+    return (uint16_t)checksum;
 }
 
 int
@@ -296,6 +354,7 @@ parse(const void *pkt, size_t len) {
                         hexdump(pkt, len);
                         return -1;
                 }
+                parsed_len += opt->nd_opt_len * 8;
             }
 
             if (parsed_len != len) {
@@ -309,9 +368,6 @@ parse(const void *pkt, size_t len) {
     }
     return 0;
 }
-
-
-
 
 void
 hexdump(const void *ptr, ssize_t buflen) {

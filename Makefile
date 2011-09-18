@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -std=c99 -Wall -Wextra -pedantic -D_XOPEN_SOURCE
+CFLAGS = -std=c99 -Wall -Wextra -pedantic -D_GNU_SOURCE
 
 all: routeradv_listend
 
