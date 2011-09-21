@@ -205,7 +205,7 @@ int main(int argc, char **argv) {
             continue;
         }
 
-        parse(iov[0].iov_base, iov[0].iov_len);
+        parse(iov[0].iov_base, len);
     }
     return 0;
 }
