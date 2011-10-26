@@ -86,6 +86,10 @@ int main(int argc, char **argv) {
 
     /* Specify additional ancillary data */
     int on = 1;
+    if (setsockopt(fd, SOL_SOCKET, SO_TIMESTAMP, &on, sizeof(on)) != 0) {
+        perror("setsockopt()");
+        return 1;
+    }
     if (setsockopt(fd, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &on, sizeof(on)) != 0) {
         perror("setsockopt()");
         return 1;
@@ -137,6 +141,7 @@ int main(int argc, char **argv) {
         /* Parse ancillary data */
         struct cmsghdr *cmsg;
         const struct in6_pktinfo *pktinfo;
+        struct timeval timestamp;
         for (cmsg = CMSG_FIRSTHDR(&m); cmsg != NULL; cmsg = CMSG_NXTHDR(&m,cmsg)) {
             /*
             fprintf(stderr, "cmsg level %d, type %d, len %zd\n", cmsg->cmsg_level, cmsg->cmsg_type, cmsg->cmsg_len);
@@ -163,6 +168,16 @@ int main(int argc, char **argv) {
                             }
 
                             fprintf(stderr, "Received packet destined for %s on interface %s\n", address_str, ifname_str);
+                            break;
+                        default:
+                            fprintf(stderr, "Unexpected cmsg type %d\n", cmsg->cmsg_type);
+                            return -1;
+                    }
+                    break;
+                case SOL_SOCKET:
+                    switch(cmsg->cmsg_type) {
+                        case SO_TIMESTAMP:
+                            memcpy(&timestamp, CMSG_DATA(cmsg), sizeof(timestamp));
                             break;
                         default:
                             fprintf(stderr, "Unexpected cmsg type %d\n", cmsg->cmsg_type);
