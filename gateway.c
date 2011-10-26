@@ -14,7 +14,7 @@ void add_gateway(const struct in6_addr * addr) {
         return;
     }
 
-    if (snprintf(cmd_string, sizeof(cmd_string), "/sbin/route -A inet6 add -net ::/0 gw %s", addr_str) >= sizeof(cmd_string)) {
+    if (snprintf(cmd_string, sizeof(cmd_string), "/sbin/route -A inet6 add -net ::/0 gw %s", addr_str) >= (ssize_t)sizeof(cmd_string)) {
         perror("exceeded command string length");
         return;
     }
@@ -33,7 +33,7 @@ void remove_gateway(const struct in6_addr *addr) {
         return;
     }
 
-    if (snprintf(cmd_string, sizeof(cmd_string), "/sbin/route -A inet6 del -net ::/0 gw %s", addr_str) >= sizeof(cmd_string)) {
+    if (snprintf(cmd_string, sizeof(cmd_string), "/sbin/route -A inet6 del -net ::/0 gw %s", addr_str) >= (ssize_t)sizeof(cmd_string)) {
         perror("exceeded command string length");
         return;
     }

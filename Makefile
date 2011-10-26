@@ -6,7 +6,7 @@ all: routeradv_listend
 %.o: %.c %.h
 	$(CC) $(CFLAGS) -c $<
 
-routeradv_listend: routeradv_listend.o
+routeradv_listend: routeradv_listend.o icmp.o routers.o gateway.o
 	$(CC) $(CFLAGS) -o $@ $^
 
 .PHONY: clean all

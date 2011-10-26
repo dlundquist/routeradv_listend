@@ -20,6 +20,9 @@ struct RouterAdvertisment {
     int hop_limit;
     int ifindex;
     struct timeval timestamp;
+    int lifetime;
+    int reachable;
+    int retransmit;
 };
 
 static void apply_icmp_filter(int);
