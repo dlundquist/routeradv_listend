@@ -12,6 +12,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <signal.h>
+#include <net/if.h> /* if_nametoindex() */
 #include "icmp.h"
 #include "routers.h"
 
@@ -34,6 +35,7 @@ main(int argc, char **argv) {
                 background_flag = 0;
                 break;
             case 'i':
+                if_index = if_nametoindex(optarg);
                 break;
             default: 
                 usage();
@@ -131,5 +133,5 @@ daemonize(const char *cmd, int sockfd) {
 
 static void
 usage() {
-    fprintf(stderr, "Usage: \n");
+    fprintf(stderr, "Usage: routeradv_listend [-f] [-i <interface>]\n");
 }
