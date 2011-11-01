@@ -46,13 +46,11 @@ main(int argc, char **argv) {
 
     sockfd = init_icmp_socket(if_index);
     if (sockfd < 0)
-        return -1;
+        return 1;
 
     
     if (background_flag)
         daemonize(argv[0], sockfd);
-
-    openlog(argv[0], LOG_CONS, LOG_DAEMON);
 
     init_routers();
 

@@ -11,6 +11,7 @@
 #include <stdlib.h> /* exit() */
 #include <time.h> /* time(), time_t */
 #include "icmp.h"
+#include "routers.h"
 
 
 struct RouterAdvertisment {
@@ -30,7 +31,7 @@ static void multicast_listen(int, const char *, int);
 static void setup_ancillary_data(int);
 static void parse_ancillary_data(struct RouterAdvertisment *, struct msghdr *);
 static uint16_t checksum(const struct in6_addr *, const struct in6_addr *, int, const void *, size_t);
-static void parse_icmp_data(struct RouterAdvertisment *, const void *, size_t);
+static int parse_icmp_data(struct RouterAdvertisment *, const void *, size_t);
 
 int
 init_icmp_socket(int ifindex) {
@@ -101,8 +102,12 @@ recv_icmp_msg(int sockfd) {
         return;
     }
 
-    parse_icmp_data(&ra, data_buf, sizeof(data_buf));
+    if (parse_icmp_data(&ra, data_buf, sizeof(data_buf)) < 0) {
+        fprintf(stderr, "Unable to parse ICMP packet\n");
+        return;
+    }
 
+    update_router(&ra.src_addr.sin6_addr, ra.timestamp.tv_sec + ra.lifetime);
 }
 
 static void
@@ -225,30 +230,24 @@ checksum(const struct in6_addr *src, const struct in6_addr *dst, int proto, cons
     return (uint16_t)checksum;
 }
 
-static void
+static int
 parse_icmp_data(struct RouterAdvertisment *adv, const void *pkt, size_t pkt_len) {
     size_t parsed_len = 0;
 
-    if (pkt_len < sizeof(struct icmp6_hdr)) {
-        fprintf(stderr, "Did not receive complete ICMP packet\n");
-        return;
-    }
-    const struct icmp6_hdr *hdr = (const struct icmp6_hdr *)pkt;
-
-    if (hdr->icmp6_type != ND_ROUTER_ADVERT) {
-        /* not a RA */
-        return;
-    }
-
     if (pkt_len < sizeof(struct nd_router_advert)) {
         fprintf(stderr, "Did not receive complete ICMP packet\n");
-        return;
+        return -1;
     }
     const struct nd_router_advert *ra = (const struct nd_router_advert *)pkt;
 
+    if (ra->nd_ra_type != ND_ROUTER_ADVERT) {
+        /* not a RA */
+        return -1;
+    }
+
     if (ra->nd_ra_code != 0) {
         fprintf(stderr, "Nonzero ICMP code,  ignoring\n");
-        return;
+        return -1;
     }
 
     adv->lifetime = ntohs(ra->nd_ra_router_lifetime);
@@ -257,50 +256,25 @@ parse_icmp_data(struct RouterAdvertisment *adv, const void *pkt, size_t pkt_len)
 
     parsed_len = sizeof(struct nd_router_advert);
 
-    /* Now read the options */
+    /* Verify ICMP options*/
     while (pkt_len - parsed_len >= sizeof(struct nd_opt_hdr)) {
         const struct nd_opt_hdr *opt = (const struct nd_opt_hdr *)((const char *)ra + parsed_len);
         if (opt->nd_opt_len == 0) {
             fprintf(stderr, "Invalid length\n");
-            return;
+            return -1;
         }
         if (pkt_len - parsed_len < opt->nd_opt_len * 8) {
             fprintf(stderr, "Did not receive complete ICMP packet option\n");
-            return;
+            return -1;
         }
 
-        /*
-        switch(opt->nd_opt_type) {
-            case ND_OPT_SOURCE_LINKADDR:
-                break;
-            case ND_OPT_PREFIX_INFORMATION:
-                if (pkt_len - parsed_len < sizeof(struct nd_opt_prefix_info)) {
-                    fprintf(stderr, "Did not receive complete ICMP packet option\n");
-                    return;
-                }
-                const struct nd_opt_prefix_info *pi = (const struct nd_opt_prefix_info *)opt;
-
-                break;
-            case ND_OPT_MTU:
-                if (pkt_len - parsed_len < sizeof(struct nd_opt_mtu)) {
-                    fprintf(stderr, "Did not receive complete ICMP packet option\n");
-                    return;
-                }
-                const struct nd_opt_mtu *mtu = (const struct nd_opt_mtu *)opt;
-
-                break;
-            default:
-                fprintf(stderr, "Unsupported option %d\n", opt->nd_opt_type);
-                return;
-        }
-        */
         parsed_len += opt->nd_opt_len * 8;
     }
 
     if (parsed_len != pkt_len) {
         fprintf(stderr, "%zd trailing bytes\n", pkt_len - parsed_len);
-        return;
+        return -1;
     }
 
-    return;
+    return 0;
 }
