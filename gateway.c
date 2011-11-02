@@ -17,6 +17,8 @@ void add_gateway(const struct in6_addr * addr) {
         return;
     }
 
+    syslog(LOG_INFO, "adding default route via %s", addr_str);
+
     if (snprintf(cmd_string, sizeof(cmd_string), "/sbin/route -A inet6 add -net ::/0 gw %s", addr_str) >= (ssize_t)sizeof(cmd_string)) {
         syslog(LOG_CRIT, "exceeded command string length");
         return;
@@ -35,6 +37,8 @@ void remove_gateway(const struct in6_addr *addr) {
         syslog(LOG_CRIT, "inet_ntop: %s", strerror(errno));
         return;
     }
+
+    syslog(LOG_INFO, "deletting default route via %s", addr_str);
 
     if (snprintf(cmd_string, sizeof(cmd_string), "/sbin/route -A inet6 del -net ::/0 gw %s", addr_str) >= (ssize_t)sizeof(cmd_string)) {
         syslog(LOG_CRIT, "exceeded command string length");
