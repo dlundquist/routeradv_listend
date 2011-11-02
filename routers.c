@@ -1,6 +1,7 @@
 #include <stdlib.h> /* calloc() */
-#include <syslog.h>
 #include <string.h> /* memcpy() */
+#include <syslog.h>
+#include <errno.h>
 #include "routers.h"
 #include "gateway.h"
 
@@ -26,7 +27,7 @@ void
 init_routers() {
     routers = calloc(1, sizeof(*routers));
     if (routers == NULL) {
-        syslog(LOG_CRIT, "calloc failed");
+        syslog(LOG_CRIT, "calloc(): %s", strerror(errno));
         exit(1);
     }
 
@@ -61,17 +62,16 @@ handle_routers() {
 time_t
 next_timeout() {
     struct Router *iter;
-    time_t min_valid_until;
+    time_t now, min_valid_until;
 
     /* Start with a min value of one hours from now */
-    time(&min_valid_until);
-    min_valid_until += 3600;
+    min_valid_until = time(&now) + 3600;
 
     SLIST_FOREACH(iter, routers, entries) {
         min_valid_until = MIN(min_valid_until, iter->valid_until);
     }
         
-    return min_valid_until;
+    return min_valid_until - now;
 }
 
 static struct Router *
@@ -91,7 +91,7 @@ add_router(const struct in6_addr *addr) {
 
     r = calloc(1, sizeof(struct Router));
     if (r == NULL) {
-        syslog(LOG_CRIT, "calloc failed");
+        syslog(LOG_CRIT, "calloc(): %s", strerror(errno));
         return r;
     }
 

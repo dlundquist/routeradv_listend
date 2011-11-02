@@ -8,7 +8,8 @@
 #include <unistd.h> /* getopt() */
 #include <net/if.h> /* if_nametoindex() */
 #include <netinet/icmp6.h> /* ICMP6 structures */
-#include <stdlib.h> /* exit() */
+#include <syslog.h>
+#include <errno.h>
 #include <time.h> /* time(), time_t */
 #include "icmp.h"
 #include "routers.h"
@@ -39,7 +40,7 @@ init_icmp_socket(int ifindex) {
 
     sockfd = socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
     if (sockfd < 0) {
-        perror("socket()");
+        syslog(LOG_CRIT, "socket(): %s", strerror(errno));
         return 1;
     }
 
@@ -81,29 +82,29 @@ recv_icmp_msg(int sockfd) {
 
     len = recvmsg(sockfd, &m, 0);
     if (len < 0) {
-        perror("recvmsg()");
+        syslog(LOG_CRIT, "recvmsg(): %s", strerror(errno));
         return;
     }
 
     parse_ancillary_data(&ra, &m);
 
     if (! IN6_IS_ADDR_LINKLOCAL(&ra.src_addr.sin6_addr)) {
-        fprintf(stderr, "Not link local, ignoring\n");
+        syslog(LOG_NOTICE, "Not link local, ignoring");
         return;
     }
 
     if (ra.hop_limit != 255) {
-        fprintf(stderr, "Hop limit is not 255, ignoring\n");
+        syslog(LOG_NOTICE, "Hop limit is not 255, ignoring\n");
         return;
     }
 
     if (checksum(&ra.src_addr.sin6_addr, &ra.dst_addr, IPPROTO_ICMPV6, data_buf, len) != 0) {
-        fprintf(stderr, "Invalid ICMP checksum, ignoring\n");
+        syslog(LOG_NOTICE, "Invalid ICMP checksum, ignoring\n");
         return;
     }
 
     if (parse_icmp_data(&ra, data_buf, len) < 0) {
-        fprintf(stderr, "Unable to parse ICMP packet\n");
+        syslog(LOG_NOTICE, "Unable to parse ICMP packet\n");
         return;
     }
 
@@ -118,7 +119,7 @@ apply_icmp_filter(int sockfd) {
     ICMP6_FILTER_SETBLOCKALL(&filter);
     ICMP6_FILTER_SETPASS(ND_ROUTER_ADVERT, &filter);
     if (setsockopt(sockfd, IPPROTO_ICMPV6, ICMP6_FILTER, &filter, sizeof(filter)) != 0) {
-        perror("setsockopt()");
+        syslog(LOG_CRIT, "setsockopt(): %s", strerror(errno));
         return;
     }
 }
@@ -131,11 +132,11 @@ multicast_listen(int sockfd, const char * addr_str, int ifindex) {
 
     mreq.ipv6mr_interface = ifindex;
     if (inet_pton(AF_INET6, addr_str, &mreq.ipv6mr_multiaddr) != 1) {
-        perror("inet_pton()");
+        syslog(LOG_CRIT, "inet_pton(): %s", strerror(errno));
         return;
     }
     if (setsockopt(sockfd, IPPROTO_IPV6, IPV6_JOIN_GROUP, &mreq, sizeof(mreq)) != 0) {
-        perror("setsockopt()");
+        syslog(LOG_CRIT, "setsockopt(): %s", strerror(errno));
         return;
     }
 }
@@ -144,15 +145,12 @@ static void
 setup_ancillary_data(int sockfd) {
     int on = 1;
 
-    if (setsockopt(sockfd, SOL_SOCKET, SO_TIMESTAMP, &on, sizeof(on)) != 0) {
-        perror("setsockopt()");
-    }
-    if (setsockopt(sockfd, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &on, sizeof(on)) != 0) {
-        perror("setsockopt()");
-    }
-    if (setsockopt(sockfd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &on, sizeof(on)) != 0) {
-        perror("setsockopt()");
-    }
+    if (setsockopt(sockfd, SOL_SOCKET, SO_TIMESTAMP, &on, sizeof(on)) != 0)
+        syslog(LOG_CRIT, "setsockopt(): %s", strerror(errno));
+    if (setsockopt(sockfd, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &on, sizeof(on)) != 0)
+        syslog(LOG_CRIT, "setsockopt(): %s", strerror(errno));
+    if (setsockopt(sockfd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &on, sizeof(on)) != 0)
+        syslog(LOG_CRIT, "setsockopt(): %s", strerror(errno));
 }
 
 static void
@@ -235,7 +233,7 @@ parse_icmp_data(struct RouterAdvertisment *adv, const void *pkt, size_t pkt_len)
     size_t parsed_len = 0;
 
     if (pkt_len < sizeof(struct nd_router_advert)) {
-        fprintf(stderr, "Did not receive complete ICMP packet\n");
+        syslog(LOG_NOTICE, "Did not receive complete ICMP packet\n");
         return -1;
     }
     const struct nd_router_advert *ra = (const struct nd_router_advert *)pkt;
@@ -246,7 +244,7 @@ parse_icmp_data(struct RouterAdvertisment *adv, const void *pkt, size_t pkt_len)
     }
 
     if (ra->nd_ra_code != 0) {
-        fprintf(stderr, "Nonzero ICMP code,  ignoring\n");
+        syslog(LOG_NOTICE, "Nonzero ICMP code,  ignoring\n");
         return -1;
     }
 
@@ -260,11 +258,11 @@ parse_icmp_data(struct RouterAdvertisment *adv, const void *pkt, size_t pkt_len)
     while (pkt_len - parsed_len >= sizeof(struct nd_opt_hdr)) {
         const struct nd_opt_hdr *opt = (const struct nd_opt_hdr *)((const char *)ra + parsed_len);
         if (opt->nd_opt_len == 0) {
-            fprintf(stderr, "Invalid length\n");
+            syslog(LOG_NOTICE, "Invalid length\n");
             return -1;
         }
         if (pkt_len - parsed_len < opt->nd_opt_len * 8) {
-            fprintf(stderr, "Did not receive complete ICMP packet option\n");
+            syslog(LOG_NOTICE, "Did not receive complete ICMP packet option\n");
             return -1;
         }
 
@@ -272,7 +270,7 @@ parse_icmp_data(struct RouterAdvertisment *adv, const void *pkt, size_t pkt_len)
     }
 
     if (parsed_len != pkt_len) {
-        fprintf(stderr, "%zd trailing bytes\n", pkt_len - parsed_len);
+        syslog(LOG_NOTICE, "%zd trailing bytes\n", pkt_len - parsed_len);
         return -1;
     }
 

@@ -18,7 +18,7 @@
 
 
 static void usage();
-static void daemonize(const char *, int);
+static void daemonize(int);
 
 
 int
@@ -43,14 +43,14 @@ main(int argc, char **argv) {
         }
     }
 
+    openlog("routeradv_listend", LOG_CONS|LOG_PERROR, LOG_DAEMON);
 
     sockfd = init_icmp_socket(if_index);
     if (sockfd < 0)
         return 1;
-
     
     if (background_flag)
-        daemonize(argv[0], sockfd);
+        daemonize(sockfd);
 
     init_routers();
 
@@ -64,13 +64,12 @@ main(int argc, char **argv) {
         if (select(sockfd + 1, &rfds, NULL, NULL, &timeout) < 0) {
             /* select() might have failed because we received a signal, so we need to check */
             if (errno != EINTR) {
-                perror("select");
+                syslog(LOG_CRIT, "select: %s", strerror(errno));
                 return 1;
             }
             /* handle signals */
             continue; /* our file descriptor sets are undefined, so select again */
         }
-
 
         if (FD_ISSET (sockfd, &rfds))
             recv_icmp_msg(sockfd);
@@ -78,12 +77,11 @@ main(int argc, char **argv) {
         handle_routers();
     }
 
-
     return 0;
 }
 
 static void
-daemonize(const char *cmd, int sockfd) {
+daemonize(int sockfd) {
     int i, fd0, fd1, fd2;
     pid_t pid;
 
@@ -114,9 +112,8 @@ daemonize(const char *cmd, int sockfd) {
     fd1 = dup(fd0);
     fd2 = dup(fd0);
 
-    openlog(cmd, LOG_CONS, LOG_DAEMON);
     if (fd0 != 0 || fd1 != 1 || fd2 != 2) {
-        fprintf(stderr, "Unexpected file descriptors\n");
+        syslog(LOG_WARNING, "Unexpected file descriptors\n");
         exit(2);
     }
 
