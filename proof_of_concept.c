@@ -366,8 +366,7 @@ parse(const void *pkt, size_t len) {
                         break;
                     default:
                         fprintf(stderr, "Unsupported option %d\n", opt->nd_opt_type);
-                        hexdump(pkt, len);
-                        return -1;
+                        hexdump(opt, opt->nd_opt_len * 8);
                 }
                 parsed_len += opt->nd_opt_len * 8;
             }
