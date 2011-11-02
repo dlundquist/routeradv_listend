@@ -102,7 +102,7 @@ recv_icmp_msg(int sockfd) {
         return;
     }
 
-    if (parse_icmp_data(&ra, data_buf, sizeof(data_buf)) < 0) {
+    if (parse_icmp_data(&ra, data_buf, len) < 0) {
         fprintf(stderr, "Unable to parse ICMP packet\n");
         return;
     }
