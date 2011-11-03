@@ -11,8 +11,8 @@
 static SLIST_HEAD(, Router) *routers;
 
 
-static struct Router *find_router(const struct in6_addr *);
-static struct Router *add_router(const struct in6_addr *);
+static struct Router *find_router(const struct in6_addr *, int);
+static struct Router *add_router(const struct in6_addr *, int);
 static void remove_router(struct Router *);
 
 
@@ -35,12 +35,12 @@ init_routers() {
 }
 
 void
-update_router(const struct in6_addr *addr, time_t valid_until) {
+update_router(const struct in6_addr *addr, int if_index, time_t valid_until) {
     struct Router *r;
 
-    r = find_router(addr);
+    r = find_router(addr, if_index);
     if (r == NULL)
-        r = add_router(addr);
+        r = add_router(addr, if_index);
 
 
     r->valid_until = valid_until;
@@ -75,18 +75,18 @@ next_timeout() {
 }
 
 static struct Router *
-find_router(const struct in6_addr *addr) {
+find_router(const struct in6_addr *addr, int if_index) {
     struct Router *iter;
 
     SLIST_FOREACH(iter, routers, entries) {
-        if (IN6_ARE_ADDR_EQUAL(&iter->addr, addr))
+        if (IN6_ARE_ADDR_EQUAL(&iter->addr, addr) && iter->if_index == if_index)
             return iter;
     }
     return NULL;
 }
 
 static struct Router *
-add_router(const struct in6_addr *addr) {
+add_router(const struct in6_addr *addr, int if_index) {
     struct Router *r;
 
     r = calloc(1, sizeof(struct Router));
@@ -96,8 +96,9 @@ add_router(const struct in6_addr *addr) {
     }
 
     memcpy(&r->addr, addr, sizeof(struct in6_addr));
+    r->if_index = if_index;
 
-    add_gateway(&r->addr);
+    add_gateway(&r->addr, if_index);
 
     SLIST_INSERT_HEAD(routers, r, entries);
 
@@ -108,7 +109,7 @@ static void
 remove_router(struct Router *router) {
     SLIST_REMOVE(routers, router, Router, entries);
 
-    remove_gateway(&router->addr);
+    remove_gateway(&router->addr, router->if_index);
 
     free(router);
 }

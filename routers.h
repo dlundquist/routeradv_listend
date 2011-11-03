@@ -8,11 +8,12 @@
 struct Router {
     struct in6_addr addr;
     time_t valid_until;
+    int if_index;
     SLIST_ENTRY(Router) entries;
 };
 
 void init_routers();
-void update_router(const struct in6_addr *, time_t);
+void update_router(const struct in6_addr *, int, time_t);
 time_t next_timeout();
 void handle_routers();
 
