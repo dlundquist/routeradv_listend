@@ -1,0 +1,7 @@
+This daemon listens for IPv6 router advertisments and dymanicly configures
+the default IPv6 route. This behaviour is implemented in the kernel, but
+disabled when IPv6 forwarding is enabled. This daemon allow a host which
+forwarding enabled to use multiple default gateways to protect against
+the case of a gateway failure like autoconfigured IPv6 hosts without
+participating in an additional dynamic routing protocol. Applications
+include NAT and VPN gateways and virtualization hosts.
