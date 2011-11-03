@@ -1,7 +1,10 @@
+#include <stdio.h>
 #include <stdlib.h> /* calloc() */
 #include <string.h> /* memcpy() */
 #include <syslog.h>
 #include <errno.h>
+#include <arpa/inet.h>
+#include <net/if.h>
 #include "routers.h"
 #include "gateway.h"
 
@@ -14,6 +17,7 @@ static SLIST_HEAD(, Router) *routers;
 static struct Router *find_router(const struct in6_addr *, int);
 static struct Router *add_router(const struct in6_addr *, int);
 static void remove_router(struct Router *);
+static void print_routers();
 
 
 #ifndef SLIST_FOREACH_SAFE
@@ -50,6 +54,8 @@ void
 handle_routers() {
     struct Router *iter, *temp;
     time_t now;
+
+    print_routers();
 
     time(&now);
 
@@ -112,4 +118,24 @@ remove_router(struct Router *router) {
     remove_gateway(&router->addr, router->if_index);
 
     free(router);
+}
+
+static void print_routers() {
+    struct Router *iter;
+    char addr_str[INET6_ADDRSTRLEN];
+    char if_name[IF_NAMESIZE];
+
+    printf("Routers:\n");
+    SLIST_FOREACH(iter, routers, entries) {
+        if (inet_ntop(AF_INET6, &iter->addr, addr_str, sizeof(addr_str)) == NULL) {
+            syslog(LOG_CRIT, "inet_ntop: %s", strerror(errno));
+            return;
+        }
+
+        if (if_indextoname(iter->if_index, if_name) == NULL) {
+            syslog(LOG_CRIT, "if_indextoname: %s", strerror(errno));
+            return;
+        }
+        printf("\t%s\t%ld\t%s\n", addr_str, iter->valid_until, if_name);
+    }
 }
