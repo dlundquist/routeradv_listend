@@ -2,8 +2,8 @@
 
 ### BEGIN INIT INFO
 # Provides:		routeradv_listend
-# Required-Start:	$network
-# Required-Stop:	$network
+# Required-Start:	$network $syslog
+# Required-Stop:	$network $syslog
 # Default-Start:	2 3 4 5
 # Default-Stop:		
 # Short-Description:	Userspace implementation of IPv6 default gateway autoconfiguration
