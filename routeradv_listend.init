@@ -1,0 +1,45 @@
+#! /bin/sh
+
+### BEGIN INIT INFO
+# Provides:		routeradv_listend
+# Required-Start:	$network
+# Required-Stop:	$network
+# Default-Start:	2 3 4 5
+# Default-Stop:		
+# Short-Description:	Userspace implementation of IPv6 default gateway autoconfiguration
+### END INIT INFO
+
+set -e
+
+test -x /sbin/routeradv_listend || exit 0
+
+export PATH="${PATH:+$PATH:}/usr/sbin:/sbin"
+
+. /lib/lsb/init-functions
+
+ROUTERADV_LISTEND_OPTS="-i eth0"
+
+case "$1" in
+  start)
+	log_daemon_msg "Starting Router Advertisment Listener" "routeradv_listend"
+	if start-stop-daemon --start --quiet --oknodo --exec /sbin/routeradv_listend -- $ROUTERADV_LISTEND_OPTS; then
+	    log_end_msg 0
+	else
+	    log_end_msg 1
+	fi
+	;;
+  stop)
+	log_daemon_msg "Stopping Router Advertisment Listener" "routeradv_listend"
+	if start-stop-daemon --stop --quiet --oknodo --exec /sbin/routeradv_listend; then
+	    log_end_msg 0
+	else
+	    log_end_msg 1
+	fi
+	;;
+
+  *)
+	log_action_msg "Usage: /etc/init.d/routeradv_listend {start|stop}"
+	exit 1
+esac
+
+exit 0
