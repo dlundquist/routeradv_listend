@@ -5,3 +5,9 @@ forwarding enabled to use multiple default gateways to protect against
 the case of a gateway failure like autoconfigured IPv6 hosts without
 participating in an additional dynamic routing protocol. Applications
 include NAT and VPN gateways and virtualization hosts.
+
+
+Usage: routeradv_listend [-f] [-i <interface>]
+    -f  run in foreground
+    -i  specify an interface to listen on
+

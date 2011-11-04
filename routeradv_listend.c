@@ -128,5 +128,7 @@ daemonize(int sockfd) {
 
 static void
 usage() {
-    fprintf(stderr, "Usage: routeradv_listend [-f] [-i <interface>]\n");
+    fprintf(stderr, "Usage: routeradv_listend [-f] [-i <interface>]\n"
+                    "    -f  run in foreground\n"
+                    "    -i  specify an interface to listen on\n");
 }
