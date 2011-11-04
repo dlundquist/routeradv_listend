@@ -5,7 +5,7 @@ Version: 0.2
 Release: %{rel}%{?dist}
 License: GPL
 Group: System Environment/Kernel
-Source: blueboxgroup-routeradv_listend-5b3108a.tar.gz
+Source: %{name}-%{version}.tar.gz
 ExclusiveOS: Linux
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 Requires: iproute
@@ -21,12 +21,12 @@ participating in an additional dynamic routing protocol. Applications
 include NAT and VPN gateways and virtualization hosts.
 
 %prep
-%setup -n blueboxgroup-routeradv_listend-5b3108a
+%setup
 
-%build -n blueboxgroup-routeradv_listend-5b3108a
+%build
 make
 
-%install -n blueboxgroup-routeradv_listend-5b3108a
+%install
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
 install -b -D -m 0755 ./routeradv_listend ${RPM_BUILD_ROOT}/sbin/routeradv_listend
 install -b -D -m 0755 ./routeradv_listend.init ${RPM_BUILD_ROOT}/etc/init.d/routeradv_listend
