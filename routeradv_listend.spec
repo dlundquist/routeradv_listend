@@ -1,6 +1,6 @@
 Summary: Userspace implementation of IPv6 default gateway autoconfiguration
 Name: routeradv_listend
-Version: 0.1
+Version: 0.2
 %define rel 1
 Release: %{rel}%{?dist}
 License: GPL
@@ -29,6 +29,14 @@ make
 %install -n blueboxgroup-routeradv_listend-5b3108a
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
 install -b -D -m 0755 ./routeradv_listend ${RPM_BUILD_ROOT}/sbin/routeradv_listend
+install -b -D -m 0755 ./routeradv_listend.init ${RPM_BUILD_ROOT}/etc/init.d/routeradv_listend
 
 %files
 /sbin/routeradv_listend
+/etc/init.d/routeradv_listend
+
+%changelog
+* Thu Nov 03 2011 Dustin Lundquist <dlundquist@bluebox.net>
+- init script
+* Thu Nov 03 2011 Dustin Lundquist <dlundquist@bluebox.net>
+- initial release
