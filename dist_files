@@ -3,7 +3,6 @@
 ./routeradv_listend.spec
 ./dist_files
 ./scripts/init_redhat
-./scripts/init_debian
 ./src/Makefile
 ./src/routeradv_listend.c
 ./src/gateway.c
@@ -12,3 +11,13 @@
 ./src/icmp.h
 ./src/routers.h
 ./src/routers.c
+./debian/
+./debian/compat
+./debian/copyright
+./debian/source
+./debian/source/format
+./debian/control
+./debian/changelog
+./debian/routeradv-listend.default
+./debian/init.d
+./debian/rules
