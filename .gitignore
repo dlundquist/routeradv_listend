@@ -1,2 +1,3 @@
 *.o
-routeradv_listend
+src/routeradv_listend
+routeradv_listend-*.tar.gz

@@ -1,20 +1,21 @@
-CC = gcc
-CFLAGS = -std=c99 -Wall -Wextra -pedantic -D_GNU_SOURCE
+NAME = routeradv_listend
+VERSION = 0.2
+RELEASE = 3
+DISTBASENAME = ${NAME}-${VERSION}-${RELEASE}
+DISTFILENAME = ${DISTBASENAME}.tar.gz
 
-all: routeradv_listend
 
-%.o: %.c %.h
-	$(CC) $(CFLAGS) -c $<
+all: 
+	make -C src all
 
-routeradv_listend: routeradv_listend.o icmp.o routers.o gateway.o
-	$(CC) $(CFLAGS) -o $@ $^
-
-.PHONY: clean all install
+.PHONY: clean all
 
 clean:
-	rm -f *.o routeradv_listend
+	rm ${DISTFILENAME}
+	make -C src clean
 
-install: routeradv_listend routeradv_listend.init
-	install routeradv_listend.init /etc/init.d/routeradv_listend
-	install routeradv_listend /sbin/routeradv_listend
+dist: ${DISTFILENAME}
+
+${DISTFILENAME}: dist_files
+	tar -c -T dist_files --transform 's!^.!${DISTBASENAME}!' -f ${DISTFILENAME} -z
 

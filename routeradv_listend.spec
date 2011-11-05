@@ -1,7 +1,7 @@
 Summary: Userspace implementation of IPv6 default gateway autoconfiguration
 Name: routeradv_listend
 Version: 0.2
-%define rel 1
+%define rel 3
 Release: %{rel}%{?dist}
 License: GPL
 Group: System Environment/Kernel
@@ -28,8 +28,8 @@ make
 
 %install
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
-install -b -D -m 0755 ./routeradv_listend ${RPM_BUILD_ROOT}/sbin/routeradv_listend
-install -b -D -m 0755 ./routeradv_listend.init ${RPM_BUILD_ROOT}/etc/init.d/routeradv_listend
+install -b -D -m 0755 ./src/routeradv_listend ${RPM_BUILD_ROOT}/sbin/routeradv_listend
+install -b -D -m 0755 ./scripts/init_redhat ${RPM_BUILD_ROOT}/etc/init.d/routeradv_listend
 
 %files
 /sbin/routeradv_listend
