@@ -19,13 +19,11 @@
 
 # Author: Dustin Lundquist <dlundquist@bluebox.net>
 
-# PATH should only include /usr/* if it runs after the mountnfs.sh script
 PATH=/sbin:/bin
-DESC=routeradv-listend             # Introduce a short description here
-NAME=routeradv-listend             # Introduce the short server's name here
-DAEMON=/sbin/routeradv-listend     # Introduce the server's location here
-DAEMON_ARGS=""                     # Arguments to run the daemon with
-PIDFILE=/var/run/$NAME.pid
+DESC=routeradv_listend
+NAME=routeradv-listend
+DAEMON=/sbin/routeradv_listend
+DAEMON_ARGS=""
 SCRIPTNAME=/etc/init.d/$NAME
 
 # Exit if the package is not installed
@@ -50,9 +48,9 @@ do_start()
 	#   0 if daemon has been started
 	#   1 if daemon was already running
 	#   2 if daemon could not be started
-	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON --test > /dev/null \
+	start-stop-daemon --start --quiet --exec $DAEMON --test > /dev/null \
 		|| return 1
-	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON -- \
+	start-stop-daemon --start --quiet --exec $DAEMON -- \
 		$DAEMON_ARGS \
 		|| return 2
 }
@@ -67,11 +65,9 @@ do_stop()
 	#   1 if daemon was already stopped
 	#   2 if daemon could not be stopped
 	#   other if a failure occurred
-	start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile $PIDFILE --name $NAME
+	start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --exec $DAEMON
 	RETVAL="$?"
 	[ "$RETVAL" = 2 ] && return 2
-	# Many daemons don't delete their pidfiles when they exit.
-	rm -f $PIDFILE
 	return "$RETVAL"
 }
 
@@ -84,7 +80,7 @@ do_reload() {
 	# restarting (for example, when it is sent a SIGHUP),
 	# then implement that here.
 	#
-	start-stop-daemon --stop --signal 1 --quiet --pidfile $PIDFILE --name $NAME
+	start-stop-daemon --stop --signal 1 --quiet --exec $DAEMON
 	return 0
 }
 

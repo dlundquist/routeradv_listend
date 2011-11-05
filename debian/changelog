@@ -1,6 +1,11 @@
+routeradv-listend (0.2-4) unstable; urgency=low
+
+  * Fix init scripts
+
+ -- Dustin Lundquist <dlundquist@bluebox.net>  Sat, 5 Nov 2011 12:24:00 -0700
+
 routeradv-listend (0.2-3) unstable; urgency=low
 
   * Initial release
 
  -- Dustin Lundquist <dlundquist@bluebox.net>  Sat, 5 Nov 2011 10:55:00 -0700
-
