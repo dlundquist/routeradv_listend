@@ -12,24 +12,24 @@
 
 RETVAL=0
 prog="routeradv_listend"
-$ROUTERADV_LISTEND_OPTS="-i eth0"
+ROUTERADV_LISTEND_OPTS="-i eth0"
 
 runlevel=$(set -- $(runlevel); eval "echo \$$#" )
 
 case "$1" in
 	start)
-        echo -n $"Starting $prog: "
-        /sbin/routeradv_listend $ROUTERADV_LISTEND_OPTS && success || failure
-        RETVAL=$?
-        [ "$RETVAL" = 0 ] && touch /var/lock/subsys/routeradv_listend
-        echo
+		echo -n $"Starting $prog: "
+		/sbin/routeradv_listend $ROUTERADV_LISTEND_OPTS && success || failure
+		RETVAL=$?
+		[ "$RETVAL" = 0 ] && touch /var/lock/subsys/routeradv_listend
+		echo
 		;;
 	stop)
-        echo -n $"Stopping $prog: "
-        killproc routeradv_listend
-        RETVAL=$?
-        [ "$RETVAL" = 0 ] && rm -f /var/lock/subsys/routeradv_listend
-        echo
+		echo -n $"Stopping $prog: "
+		killproc routeradv_listend
+		RETVAL=$?
+		[ "$RETVAL" = 0 ] && rm -f /var/lock/subsys/routeradv_listend
+		echo
 		;;
 	*)
 		echo $"Usage: $0 {start|stop}"
