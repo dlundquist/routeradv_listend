@@ -1,5 +1,10 @@
 #! /bin/sh
 
+# routeradv_listend	Userspace implementation of IPv6 default gateway autoconfiguration
+#
+# chkconfig: 2345 30 70
+# description: Userspace implementation of IPv6 default gateway autoconfiguration
+#
 ### BEGIN INIT INFO
 # Provides:		routeradv_listend
 # Required-Start:	$network $syslog
