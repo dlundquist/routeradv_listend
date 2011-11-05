@@ -11,3 +11,16 @@ Usage: routeradv_listend [-f] [-i <interface>]
     -f  run in foreground
     -i  specify an interface to listen on
 
+
+## Packaging
+
+### Debian
+
+1. `fakeroot dh binary`
+
+### RedHat
+
+1. Use `make dist` to build a source tarball
+2. Copy this source tarball to your RPM sources directory, usually /usr/src/redhat/SOURCES/
+3. Copy routeradv_listend.spec to your spec directory, usually /usr/src/redhat/SPECS/
+4. rpmbuild -ba /usr/src/redhat/SPECS/routeradv_listend.spec
