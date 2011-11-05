@@ -1,0 +1,38 @@
+#!/bin/bash
+#
+# Init file for routeradv_listend
+#
+# chkconfig: 2345 30 70
+# description: Userspace implementation of IPv6 default gateway autoconfiguration
+#
+# processname: routeradv_listend
+
+# source function library
+. /etc/rc.d/init.d/functions
+
+RETVAL=0
+prog="routeradv_listend"
+$ROUTERADV_LISTEND_OPTS="-i eth0"
+
+runlevel=$(set -- $(runlevel); eval "echo \$$#" )
+
+case "$1" in
+	start)
+        echo -n $"Starting $prog: "
+        /sbin/routeradv_listend $ROUTERADV_LISTEND_OPTS && success || failure
+        RETVAL=$?
+        [ "$RETVAL" = 0 ] && touch /var/lock/subsys/routeradv_listend
+        echo
+		;;
+	stop)
+        echo -n $"Stopping $prog: "
+        killproc routeradv_listend
+        RETVAL=$?
+        [ "$RETVAL" = 0 ] && rm -f /var/lock/subsys/routeradv_listend
+        echo
+		;;
+	*)
+		echo $"Usage: $0 {start|stop}"
+		RETVAL=1
+esac
+exit $RETVAL
