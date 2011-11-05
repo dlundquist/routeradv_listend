@@ -1,0 +1,10 @@
+# Defaults for routeradv-listend initscript
+# sourced by /etc/init.d/routeradv-listend
+# installed at /etc/default/routeradv-listend by the maintainer scripts
+
+#
+# This is a POSIX shell fragment
+#
+
+# Additional options that are passed to the Daemon.
+DAEMON_OPTS="-i eth0"
