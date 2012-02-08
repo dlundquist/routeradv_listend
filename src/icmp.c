@@ -106,7 +106,7 @@ recv_icmp_msg(int sockfd) {
     }
 
     if (selected_if_index > 0 && ra.if_index != selected_if_index) {
-        syslog(LOG_WARNING, "Packeted recevied on different interface");
+        syslog(LOG_WARNING, "Packet recevied on different interface");
         return;
     }
 
