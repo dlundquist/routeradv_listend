@@ -120,7 +120,8 @@ remove_router(struct Router *router) {
     free(router);
 }
 
-static void print_routers() {
+static void
+print_routers() {
     struct Router *iter;
     char addr_str[INET6_ADDRSTRLEN];
     char if_name[IF_NAMESIZE];
